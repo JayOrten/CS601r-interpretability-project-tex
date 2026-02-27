@@ -1,0 +1,37 @@
+# --- LaTeX Core Compile Artifacts ---
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fmt
+*.fot
+*.cb
+*.cb2
+*.dvi
+*.xdv
+*.pdf
+*.synctex.gz
+*.synctex(busy)
+*.run.xml
+*-blx.bib
+
+# latexmk
+*.fdb_latexmk
+*.fls
+
+# Backups and autosaves
+*~
+\#*\#
+.#*
+# Directory variables (optional, keep if you share per-project config)
+.dir-locals.el
+.auctex-auto
+
+# --- OS Generated Files ---
+.DS_Store
+Thumbs.db
