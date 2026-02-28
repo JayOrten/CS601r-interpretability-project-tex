@@ -25,11 +25,12 @@
 % This is also not strictly necessary, and may be commented out.
 % However, it will improve the aesthetics of text in
 % the typewriter font.
-\usepackage{inconsolata}
+% \usepackage{inconsolata}
 
 %Including images in your LaTeX document requires adding
 %additional package(s)
 \usepackage{graphicx}
+\usepackage{amsmath}
 
 % If the title and author information does not fit in the area allocated, uncomment the following
 %
@@ -37,99 +38,127 @@
 %
 % and set <dim> to something 5cm or larger.
 
-\title{Title}
+\title{Interpreting Alternative Representation Learning Approaches through Multilingual Contexts: Project Proposal}
 
 \author{Jay Orten \\
   Brigham Young University \\
   Provo, Utah \\
-  \texttt{jo288@byu.edu} \\\
+  \texttt{jo288@byu.edu} \\
   }
-
-% Author information can be set in various styles:
-% For several authors from the same institution:
-% \author{Author 1 \and ... \and Author n \\
-%         Address line \\ ... \\ Address line}
-% if the names do not fit well on one line use
-%         Author 1 \\ {\bf Author 2} \\ ... \\ {\bf Author n} \\
-% For authors from different institutions:
-% \author{Author 1 \\ Address line \\  ... \\ Address line
-%         \And  ... \And
-%         Author n \\ Address line \\ ... \\ Address line}
-% To start a separate ``row'' of authors use \AND, as in
-% \author{Author 1 \\ Address line \\  ... \\ Address line
-%         \AND
-%         Author 2 \\ Address line \\ ... \\ Address line \And
-%         Author 3 \\ Address line \\ ... \\ Address line}
-
-% \author{First Author \\
-%   Affiliation / Address line 1 \\
-%   Affiliation / Address line 2 \\
-%   Affiliation / Address line 3 \\
-%   \texttt{email@domain} \\\And
-%   Second Author \\
-%   Affiliation / Address line 1 \\
-%   Affiliation / Address line 2 \\
-%   Affiliation / Address line 3 \\
-%   \texttt{email@domain} \\}
-
-%\author{
-%  \textbf{First Author\textsuperscript{1}},
-%  \textbf{Second Author\textsuperscript{1,2}},
-%  \textbf{Third T. Author\textsuperscript{1}},
-%  \textbf{Fourth Author\textsuperscript{1}},
-%\\
-%  \textbf{Fifth Author\textsuperscript{1,2}},
-%  \textbf{Sixth Author\textsuperscript{1}},
-%  \textbf{Seventh Author\textsuperscript{1}},
-%  \textbf{Eighth Author \textsuperscript{1,2,3,4}},
-%\\
-%  \textbf{Ninth Author\textsuperscript{1}},
-%  \textbf{Tenth Author\textsuperscript{1}},
-%  \textbf{Eleventh E. Author\textsuperscript{1,2,3,4,5}},
-%  \textbf{Twelfth Author\textsuperscript{1}},
-%\\
-%  \textbf{Thirteenth Author\textsuperscript{3}},
-%  \textbf{Fourteenth F. Author\textsuperscript{2,4}},
-%  \textbf{Fifteenth Author\textsuperscript{1}},
-%  \textbf{Sixteenth Author\textsuperscript{1}},
-%\\
-%  \textbf{Seventeenth S. Author\textsuperscript{4,5}},
-%  \textbf{Eighteenth Author\textsuperscript{3,4}},
-%  \textbf{Nineteenth N. Author\textsuperscript{2,5}},
-%  \textbf{Twentieth Author\textsuperscript{1}}
-%\\
-%\\
-%  \textsuperscript{1}Affiliation 1,
-%  \textsuperscript{2}Affiliation 2,
-%  \textsuperscript{3}Affiliation 3,
-%  \textsuperscript{4}Affiliation 4,
-%  \textsuperscript{5}Affiliation 5
-%\\
-%  \small{
-%    \textbf{Correspondence:} \href{mailto:email@domain}{email@domain}
-%  }
-%}
 
 \begin{document}
 \maketitle
 \begin{abstract}
-  Abstract.
+  Large Language Models learn representations through superposition, packing far more features into embedding space than dimensions permit. Joint Embedding Predictive Architectures (JEPAs) offer an alternative objective that optimizes predictions in abstract representation space rather than input space, potentially yielding denser, more semantically organized representations. LLM-JEPA adapts this objective to autoregressive transformers, demonstrating alignment gains on specific tasks, yet its impact on internal representations remains largely unexplored. This project proposes to investigate LLM-JEPA through the lens of mechanistic interpretability. This includes finetuning a pretrained autoregressive model with the JEPA objective on multilingual data and comparing its representations against a baseline using probes, Sparse Autoencoders, and circuit analysis. This project examines how representations evolve across layers, whether induction heads weaken, and whether syntactic features are suppressed in favor of abstract semantics. Initial experiments confirm that induction head activation decreases in later layers under the JEPA objective, motivating deeper investigation. I also consider architectural extensions toward unsupervised alignment and multi-step latent reasoning.
 \end{abstract}
 
 \section{Introduction}
 
+The purpose of representation learning is to learn weights that create rich embeddings of input data for downstream tasks. In modern language modeling architectures, representation learning is done in a highly independent manner (no handcrafted features) with large amounts of data representing various levels of sparsity. The primary representation learning goal of deep learning models, particularly Large Language Models (LLMs), is to optimize extraction (which features are useful/important) and geometry (how to pack features together). Because the number of possible features is far larger than the available representation space, superposition occurs with sparse features \cite{elhage2022superposition}. This compression is a natural result of the training objective, but one might be justified in asking: how efficient is superposition? Is it possible that a different objective would enable a more organized representation space, enhancing performance and resulting in higher-level reasoning?
+
+Such a goal is the premise of Joint Embedding Predictive Architectures (JEPAs) \cite{Dawid_2024}. \textit{Inter alia}, JEPA discounts input-space objectives in favor of making predictions in higher-level, abstract representation space, often across multiple predictive steps. Much like how humans often reason in abstract terms detached from literal syntax, the expectation of JEPA is that it produces better world modeling because it can ignore noisy output details such as tokens or pixels.
+
+A recent iteration of JEPA, LLM-JEPA \cite{huang2026llmjepa}, attempts to apply the JEPA objective to autoregressive transformer models. Such an application is somewhat awkward because, perhaps pedantically, JEPA is not a ``generative'' architecture, it is ``predictive'' or ``reconstruction-based''. \citet{huang2026llmjepa} make some concessions in combining these two paradigms, such as foregoing the multi-step predictive nature of the original JEPA objective. Regardless, their model shows improved training performance and accuracy for several specific tasks, and they demonstrate that the JEPA objective results in an aligned representation space. However, their investigation into what the objective is doing to the representations, from an interpretability standpoint, is limited.
+
+In this project, I am interested in exploring the JEPA objective through the lens of mechanistic interpretability. I am specifically interested in the following research questions:
+
+\begin{description}
+  \item[\textbf{RQ1:}] How does LLM-JEPA perform with aligned multilingual data? \citet{huang2026llmjepa} only explored limited, specific datasets such as regex or text-to-SQL tasks. Multilingual translation appears to be a natural task space for their objective.
+  \item[\textbf{RQ2:}] How does the JEPA objective impact the representation space of the autoregressive model? Specifically, how does the representation differ across layers compared to a baseline? I hypothesize that JEPA results in a denser representation with abstract activations peaking later in the model.
+  \item[\textbf{RQ3:}] How can LLM-JEPA be modified such that (1) it implements multi-step predictions in embedding space, and (2) it can function on unpaired, unsupervised tasks.
+\end{description}
+
+These research questions are significant to this course as well as the research field because they investigate questions of representation from an interlingual perspective. As mentioned, the research community is well aware of the superposition problem, and it is possible that JEPA results in aligned representations that are easier (or harder) to read. However, there has not yet been interpretability research done on JEPA in the context of LLMs. This research will contribute valuable understanding as to what LLM-JEPA is doing under the hood.
+
+In this project, I fully expect to make significant progress on research questions RQ1 and RQ2. RQ3 can be seen as a ``stretch goal'' that is relevant to my personal research as well as the broader important question: how can we make LLM-JEPA more generally useful.
+
+\section{Related Work}
+
+\citet{Dawid_2024} introduced JEPA as an energy-based latent variable framework with multi-step predictions. \citet{assran2023self} applied the architecture to Vision Transformers, demonstrating that JEPA can be used to predict masked parts of an image in latent space as opposed to pixel space. Compared to Masked Autoencoders, I-JEPA can learn highly semantic features more efficiently. Other iterations of JEPA have extended to video prediction \cite{bardes2024vjepa}, motion and content prediction \cite{bardes2024mcjepa}, vision-language modeling \cite{chen2026vljepa}, and audio \cite{fei2023jepa}.
+
+More recently, LLM-JEPA \cite{huang2026llmjepa} was proposed as an application of the JEPA paradigm to autoregressive language models. LLM-JEPA attaches an additional term to the loss objective:
+\begin{equation*}
+\begin{split}
+  \mathcal{L}_{\text{LLM-JEPA}} &= \sum_{\ell=2}^{L} \mathcal{L}_{\text{LLM}}(\text{Text}_{1:\ell-1}, \text{Text}_\ell) \\
+  &+ \lambda \, d \big( \text{Pred}(\text{Enc}(\text{Text})), \text{Enc}(\text{Code}) \big)
+\end{split}
+\end{equation*}
+
+where $\lambda \geq 0$ balances the two terms, Pred and Enc are separate predictor and encoder networks, and $d$ is cosine similarity. In practice, the encoder ``network'' just takes the hidden state of the last layer. The predictor ``network'' reuses the weights of the model by taking the final hidden state of the last \texttt{[PRED]} token, of which several are appended to the sequence.
+
+Intuitively, this objective takes two aligned inputs, code and text describing the code, and optimizes the similarity between the final embeddings of both inputs, such that their representations are aligned despite syntactical differences. The predictor method allows multiple steps of representation processing, and is reminiscent of the original JEPA objective, although it is unclear how many prediction tokens should be present and how---or to what degree---they impact the representation.
+
+A major limitation of LLM-JEPA is that it requires aligned data to train on. This data must be different ``views'' of the same knowledge. Assembling such data by hand appears non-trivial and costly, although multilingual datasets may be a natural application space.
+
+Recent research has suggested that JEPA can result in dense representations, making interpretability difficult \cite{hartman2025sparsejepasparserepresentationlearning}. Methods such as SparseJEPA \cite{hartman2025sparsejepasparserepresentationlearning} and Rectified LpJEPA \cite{kuang2026rectifiedlpjepajointembeddingpredictive} attempt to alleviate these issues, mostly for performance gains. These approaches are entirely focused in the image domain, and little work has been done interpretability-wise to identify how exactly JEPA impacts model representations.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/loss.png}
+  \caption{Training loss curves for the baseline and LLM-JEPA finetuned Bloom model over 200 steps.}
+  \label{fig:loss}
+\end{figure*}
+
+\section{Planned Methodology}
+
+For this project, I propose the following research steps, corresponding with each of my research questions:
+
+\subsection{Replicate LLM-JEPA Results with Multilingual Data}
+
+Any interpretability work I do on this architecture will be useless if I am unable to properly replicate the results found in the LLM-JEPA paper, at least to some degree. The authors provided a GitHub repository for training and finetuning LLM-JEPA models up to 8B parameters \cite{huang2025llmjepa_repo}. I am unaware of any available pretrained models on repositories like HuggingFace. I will adapt their code and attempt to replicate their base results by finetuning from a pretrained model. They include training datasets in the repository.
+
+After attempting to replicate their results, I will also attempt to finetune LLM-JEPA with a multilingual dataset such as OPUS \cite{zhang-etal-2020-improving, tiedemann-2012-parallel} or FLORES+ \cite{nllb-24}. I will pick 3--4 common high-resource languages such as English, German, Chinese, or French, and perhaps one low-resource language such as Tagalog. The model will be trained on this data by attaching aligned sentences with a separator token, as the LLM-JEPA paper indicates. I will likely pick a pretrained autoregressive model suited for translation tasks. Qwen3 may be a good choice because of its strong multilingual pretraining \cite{qwen3technicalreport}. I will evaluate performance at this stage based on loss and accuracy on a held-out test set.
+
+\subsection{Apply Interpretability Methods}
+
+With a baseline and a finetuned LLM-JEPA model in hand, I will compare them with various interpretability methods. One motivation I have for this project is to get my hands dirty with a variety of interpretability tools that we have learned about in class. My plan for this step is largely unstructured and exploratory; however, I do have several questions of interest guiding me:
+
+\begin{enumerate}
+  \item How do representations change across layers? \citet{huang2026llmjepa} only investigated the final representations of the LLM-JEPA model.
+  \item Are LLM-JEPA representations more or less separable with a Sparse Autoencoder (SAE)? Intuitively, they should be denser and less interpretable.
+  \item Does LLM-JEPA dedicate fewer features to syntax, grammar, and formatting? If so, can we identify that it does?
+  \item Do induction heads, which rely heavily on specific token patterns, disappear or weaken because of JEPA?
+  \item The representation space in LLMs usually takes a U-shaped trajectory from syntax to deep abstract semantics, and then back to syntax for output. Does this structure change or disappear with the JEPA objective?
+  \item Is the performance gain from LLM-JEPA actually a result of the modified representations? \citet{huang2026llmjepa} performed several general ablation steps, but it may be interesting to conduct causal analysis to determine where the benefit is concentrated.
+\end{enumerate}
+
+Each of these questions marks an individual, smaller experiment I would like to test. As necessary, I will use tools such as SAEs, probes, circuit analysis, and causal tracing to explore these questions. I also expect that my findings on some of them will lead me towards more interesting, relevant directions that I did not consider previously.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/results.png}
+  \caption{Induction head activation heatmaps for the baseline (left) and LLM-JEPA finetuned (right) Bloom models.}
+  \label{fig:results}
+\end{figure*}
+
+\subsection{LLM-JEPA Modifications}
+
+As I mentioned previously, there are some issues with LLM-JEPA, two of which are particularly notable:
+
+\begin{enumerate}
+  \item LLM-JEPA requires aligned data for the text and code, making it a somewhat supervised task. It would be more appealing if LLM-JEPA could align these representations itself.
+  \item LLM-JEPA has a variable number of ``predictor'' steps, but these are purely for processing power, and overall the architecture still acts in a single-step autoregressive manner. This goes against the original JEPA vision \cite{Dawid_2024}, and it would be interesting to let the LLM actually reason in a multi-step manner, more akin to work such as Chain of Continuous Thought \cite{hao2025training}.
+\end{enumerate}
+
+In this proposal, I am not going to expound on this step, because it is more relevant to my personal research and less relevant to this project itself. If I happen to achieve my other goals before I have put in adequate time, I may pursue this step in more depth, but I do not anticipate that to be the case.
+
+\section{Initial Experiments}
+
+I have conducted initial experimentation to evaluate whether this project is viable and promising. I particularly targeted the idea of induction heads: since JEPA should prioritize higher-level representations, I would expect induction heads to weaken or disappear because they primarily focus on token-level patterns.
+
+I took a base Bloom model and finetuned it with the JEPA objective. It took some work to get right, between adjusting the $\lambda$ contribution value and trying to use the right data. Eventually, I achieved loss curves that looked acceptable, shown in Figure \ref{fig:loss}. However, I only trained for 200 steps; I will train more extensively in my project.
+
+To find induction heads, I heatmapped attention head activations for both models based on the induction head pattern. In Figure \ref{fig:results}, we can see that many heads in the later layers become ``less inductive'' in the JEPA model, by at least a little. However, the core heads are still there. The magnitude of difference tells me that the JEPA objective likely did not change the model in any significant way, especially since it was not finetuned for very long.
+
+Overall, this initial experimentation gave me greater confidence that answering my research questions will be possible for this project, and that there are interesting questions to explore in this area.
+
 \section{Conclusion}
+
+This proposed project explores LLM-JEPA, an alternative representation learning approach, through the lens of mechanistic interpretability. I propose training an LLM-JEPA model on multilingual data and using interpretability techniques to explore how the JEPA objective changes internal representations. This research brings greater insight into how JEPA impacts an LLM, how it might benefit interlingual representations, and what improvements can be made to LLM-JEPA.
 
 % Bibliography entries for the entire Anthology, followed by custom entries
 %\bibliography{anthology,custom}
 % Custom bibliography entries only
 \bibliography{custom}
-
-\appendix
-
-\section{Example Appendix}
-\label{sec:appendix}
-
-This is an appendix.
 
 \end{document}
