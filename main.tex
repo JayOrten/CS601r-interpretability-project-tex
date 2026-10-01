@@ -32,13 +32,15 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 
+\usepackage{booktabs}
+
 % If the title and author information does not fit in the area allocated, uncomment the following
 %
 %\setlength\titlebox{<dim>}
 %
 % and set <dim> to something 5cm or larger.
 
-\title{Interpreting Alternative Representation Learning Approaches through Multilingual Contexts: Project Proposal}
+\title{Probing the Representations of JEPA-Style Language Model Objectives}
 
 \author{Jay Orten \\
   Brigham Young University \\
@@ -48,41 +50,42 @@
 
 \begin{document}
 \maketitle
+\renewcommand{\thefootnote}{}
+\footnotetext{Code available here: \url{https://github.com/JayOrten/llm-jepa}}
+\renewcommand{\thefootnote}{\arabic{footnote}}
 \begin{abstract}
-  Large Language Models learn representations through superposition, packing far more features into embedding space than dimensions permit. Joint Embedding Predictive Architectures (JEPAs) offer an alternative objective that optimizes predictions in abstract representation space rather than input space, potentially yielding denser, more semantically organized representations. LLM-JEPA adapts this objective to autoregressive transformers, demonstrating alignment gains on specific tasks, yet its impact on internal representations remains largely unexplored. This project proposes to investigate LLM-JEPA through the lens of mechanistic interpretability. This includes finetuning a pretrained autoregressive model with the JEPA objective on multilingual data and comparing its representations against a baseline using probes, Sparse Autoencoders, and circuit analysis. This project examines how representations evolve across layers, whether induction heads weaken, and whether syntactic features are suppressed in favor of abstract semantics. Initial experiments confirm that induction head activation decreases in later layers under the JEPA objective, motivating deeper investigation. I also consider architectural extensions toward unsupervised alignment and multi-step latent reasoning.
+  Large Language Models learn representations through superposition, packing far more features into embedding space than dimensions permit. Semantic Tube Prediction (STP) is an alternative objective that minimizes sequence trajectory noise, potentially yielding denser, more semantically organized representations. However, its impact on internal representations is unexplored. This project investigates STP through the lens of mechanistic interpretability. This includes finetuning a pretrained autoregressive model with the STP objective and comparing its representations against a baseline using probes, sparse autoencoders, and trajectory divergence metrics. I find that STP does not produce measurably straighter trajectories, challenging the theoretical motivation of the original paper. However, STP may reduce superposition, shifting feature dimensionality towards higher values. Subspace divergence analysis reveals a dominant direction capturing 55\% of representational variance, corresponding to task-relevant tokens. Probing results suggest that the information needed for correct answers is present in both models, but STP enables better utilization. These results suggest STP may function primarily as an effective regularizer rather than directly reshaping representation geometry as theorized.
 \end{abstract}
 
 \section{Introduction}
 
 The purpose of representation learning is to learn weights that create rich embeddings of input data for downstream tasks. In modern language modeling architectures, representation learning is done in a highly independent manner (no handcrafted features) with large amounts of data representing various levels of sparsity. The primary representation learning goal of deep learning models, particularly Large Language Models (LLMs), is to optimize extraction (which features are useful/important) and geometry (how to pack features together). Because the number of possible features is far larger than the available representation space, superposition occurs with sparse features \cite{elhage2022superposition}. This compression is a natural result of the training objective, but one might be justified in asking: how efficient is superposition? Is it possible that a different objective would enable a more organized representation space, enhancing performance and resulting in higher-level reasoning?
 
-Such a goal is the premise of Joint Embedding Predictive Architectures (JEPAs) \cite{Dawid_2024}. \textit{Inter alia}, JEPA discounts input-space objectives in favor of making predictions in higher-level, abstract representation space, often across multiple predictive steps. Much like how humans often reason in abstract terms detached from literal syntax, the expectation of JEPA is that it produces better world modeling because it can ignore noisy output details such as tokens or pixels.
+In my initial project proposal, I proposed exploring Joint Embedding Predictive Architectures (JEPAs), specifically LLM-JEPA \cite{huang2026llmjepa}, as an alternative representation learning approach. Since writing that proposal, the authors of LLM-JEPA released a follow-up paper that introduces a new JEPA-style regularizer, Semantic Tube Prediction (STP) \cite{stp}. STP solves several problems with the LLM-JEPA objective that I noted in my original proposal, such as the need for aligned data. As such, I decided to pivot my project to focus on the STP objective instead, with the same research questions and interpretability methods. Although the theory driving STP appears quite different from LLM-JEPA, the practical implementations are close: both introduce an additional regularization term to the loss that minimizes the cosine similarity between two hidden representations. While LLM-JEPA uses aligned inputs for those hidden representations, STP uses different subsets of the same input. STP demonstrates significant performance gains over both baseline and LLM-JEPA objectives.
 
-A recent iteration of JEPA, LLM-JEPA \cite{huang2026llmjepa}, attempts to apply the JEPA objective to autoregressive transformer models. Such an application is somewhat awkward because, perhaps pedantically, JEPA is not a ``generative'' architecture, it is ``predictive'' or ``reconstruction-based''. \citet{huang2026llmjepa} make some concessions in combining these two paradigms, such as foregoing the multi-step predictive nature of the original JEPA objective. Regardless, their model shows improved training performance and accuracy for several specific tasks, and they demonstrate that the JEPA objective results in an aligned representation space. However, their investigation into what the objective is doing to the representations, from an interpretability standpoint, is limited.
+% A recent iteration of JEPA, LLM-JEPA \cite{huang2026llmjepa}, attempts to apply the JEPA objective to autoregressive transformer models. Such an application is somewhat awkward because, perhaps pedantically, JEPA is not a ``generative'' architecture, it is ``predictive'' or ``reconstruction-based''. \citet{huang2026llmjepa} make some concessions in combining these two paradigms, such as foregoing the multi-step predictive nature of the original JEPA objective. Regardless, their model shows improved training performance and accuracy for several specific tasks, and they demonstrate that the JEPA objective results in an aligned representation space. However, their investigation into what the objective is doing to the representations, from an interpretability standpoint, is limited.
 
-In this project, I am interested in exploring the JEPA objective through the lens of mechanistic interpretability. I am specifically interested in the following research questions:
+% In this project, I am interested in exploring the JEPA objective through the lens of mechanistic interpretability. I am specifically interested in the following research questions:
+
+For this project, I explored the STP objective from a mechanistic interpretability standpoint, asking the following research questions:
 
 \begin{description}
-  \item[\textbf{RQ1:}] How does LLM-JEPA perform with aligned multilingual data? \citet{huang2026llmjepa} only explored limited, specific datasets such as regex or text-to-SQL tasks. Multilingual translation appears to be a natural task space for their objective.
-  \item[\textbf{RQ2:}] How does the JEPA objective impact the representation space of the autoregressive model? Specifically, how does the representation differ across layers compared to a baseline? I hypothesize that JEPA results in a denser representation with abstract activations peaking later in the model.
-  \item[\textbf{RQ3:}] How can LLM-JEPA be modified such that (1) it implements multi-step predictions in embedding space, and (2) it can function on unpaired, unsupervised tasks.
+  \item[\textbf{RQ1:}] How does STP perform with aligned multilingual data? \citet{stp} only explored limited, specific datasets such as regex or text-to-SQL tasks. Multilingual translation appears to be a natural task space for their objective.
+  \item[\textbf{RQ2:}] How can the trajectory optimized by STP be quantified mechanistically? 
+  \item[\textbf{RQ3:}] How does the STP objective impact the representation space of the autoregressive model? Specifically, how does the representation differ across layers compared to a baseline? I hypothesize that STP results in a denser representation with abstract activations peaking later in the model.
 \end{description}
 
-These research questions are significant to this course as well as the research field because they investigate questions of representation from an interlingual perspective. As mentioned, the research community is well aware of the superposition problem, and it is possible that JEPA results in aligned representations that are easier (or harder) to read. However, there has not yet been interpretability research done on JEPA in the context of LLMs. This research will contribute valuable understanding as to what LLM-JEPA is doing under the hood.
-
-In this project, I fully expect to make significant progress on research questions RQ1 and RQ2. RQ3 can be seen as a ``stretch goal'' that is relevant to my personal research as well as the broader important question: how can we make LLM-JEPA more generally useful.
+These research questions are significant to this course as well as the research field because they investigate questions of representation from an interlingual perspective. As mentioned, the research community is well aware of the superposition problem, and it is possible that STP results in aligned representations that are easier (or harder) to read. However, there has not yet been interpretability research done on JEPA-type objectives in the context of LLMs. This research will contribute valuable understanding as to what STP is doing under the hood.
 
 \section{Related Work}
 
 \citet{Dawid_2024} introduced JEPA as an energy-based latent variable framework with multi-step predictions. \citet{assran2023self} applied the architecture to Vision Transformers, demonstrating that JEPA can be used to predict masked parts of an image in latent space as opposed to pixel space. Compared to Masked Autoencoders, I-JEPA can learn highly semantic features more efficiently. Other iterations of JEPA have extended to video prediction \cite{bardes2024vjepa}, motion and content prediction \cite{bardes2024mcjepa}, vision-language modeling \cite{chen2026vljepa}, and audio \cite{fei2023jepa}.
 
 More recently, LLM-JEPA \cite{huang2026llmjepa} was proposed as an application of the JEPA paradigm to autoregressive language models. LLM-JEPA attaches an additional term to the loss objective:
-\begin{equation*}
-\begin{split}
-  \mathcal{L}_{\text{LLM-JEPA}} &= \sum_{\ell=2}^{L} \mathcal{L}_{\text{LLM}}(\text{Text}_{1:\ell-1}, \text{Text}_\ell) \\
-  &+ \lambda \, d \big( \text{Pred}(\text{Enc}(\text{Text})), \text{Enc}(\text{Code}) \big)
-\end{split}
-\end{equation*}
+\begin{align}
+  \mathcal{L}_{\text{LLM-JEPA}} &= \sum_{\ell=2}^{L} \mathcal{L}_{\text{LLM}}(\text{Text}_{1:\ell-1}, \text{Text}_\ell) \label{eq:llm-jepa-loss} \\
+  &+ \lambda \, d \big( \text{Pred}(\text{Enc}(\text{Text})), \text{Enc}(\text{Code}) \big) \nonumber
+\end{align}
 
 where $\lambda \geq 0$ balances the two terms, Pred and Enc are separate predictor and encoder networks, and $d$ is cosine similarity. In practice, the encoder ``network'' just takes the hidden state of the last layer. The predictor ``network'' reuses the weights of the model by taking the final hidden state of the last \texttt{[PRED]} token, of which several are appended to the sequence.
 
@@ -94,68 +97,188 @@ Recent research has suggested that JEPA can result in dense representations, mak
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\linewidth]{images/loss.png}
-  \caption{Training loss curves for the baseline and LLM-JEPA finetuned Bloom model over 200 steps.}
-  \label{fig:loss}
+  \includegraphics[width=\linewidth]{images/pca.png}
+  \caption{Token-wise PCA variance across principal components for NTP and STP models.}
+  \label{fig:pca}
 \end{figure*}
-
-\section{Planned Methodology}
-
-For this project, I propose the following research steps, corresponding with each of my research questions:
-
-\subsection{Replicate LLM-JEPA Results with Multilingual Data}
-
-Any interpretability work I do on this architecture will be useless if I am unable to properly replicate the results found in the LLM-JEPA paper, at least to some degree. The authors provided a GitHub repository for training and finetuning LLM-JEPA models up to 8B parameters \cite{huang2025llmjepa_repo}. I am unaware of any available pretrained models on repositories like HuggingFace. I will adapt their code and attempt to replicate their base results by finetuning from a pretrained model. They include training datasets in the repository.
-
-After attempting to replicate their results, I will also attempt to finetune LLM-JEPA with a multilingual dataset such as OPUS \cite{zhang-etal-2020-improving, tiedemann-2012-parallel} or FLORES+ \cite{nllb-24}. I will pick 3--4 common high-resource languages such as English, German, Chinese, or French, and perhaps one low-resource language such as Tagalog. The model will be trained on this data by attaching aligned sentences with a separator token, as the LLM-JEPA paper indicates. I will likely pick a pretrained autoregressive model suited for translation tasks. Qwen3 may be a good choice because of its strong multilingual pretraining \cite{qwen3technicalreport}. I will evaluate performance at this stage based on loss and accuracy on a held-out test set.
-
-\subsection{Apply Interpretability Methods}
-
-With a baseline and a finetuned LLM-JEPA model in hand, I will compare them with various interpretability methods. One motivation I have for this project is to get my hands dirty with a variety of interpretability tools that we have learned about in class. My plan for this step is largely unstructured and exploratory; however, I do have several questions of interest guiding me:
-
-\begin{enumerate}
-  \item How do representations change across layers? \citet{huang2026llmjepa} only investigated the final representations of the LLM-JEPA model.
-  \item Are LLM-JEPA representations more or less separable with a Sparse Autoencoder (SAE)? Intuitively, they should be denser and less interpretable.
-  \item Does LLM-JEPA dedicate fewer features to syntax, grammar, and formatting? If so, can we identify that it does?
-  \item Do induction heads, which rely heavily on specific token patterns, disappear or weaken because of JEPA?
-  \item The representation space in LLMs usually takes a U-shaped trajectory from syntax to deep abstract semantics, and then back to syntax for output. Does this structure change or disappear with the JEPA objective?
-  \item Is the performance gain from LLM-JEPA actually a result of the modified representations? \citet{huang2026llmjepa} performed several general ablation steps, but it may be interesting to conduct causal analysis to determine where the benefit is concentrated.
-\end{enumerate}
-
-Each of these questions marks an individual, smaller experiment I would like to test. As necessary, I will use tools such as SAEs, probes, circuit analysis, and causal tracing to explore these questions. I also expect that my findings on some of them will lead me towards more interesting, relevant directions that I did not consider previously.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\linewidth]{images/results.png}
-  \caption{Induction head activation heatmaps for the baseline (left) and LLM-JEPA finetuned (right) Bloom models.}
-  \label{fig:results}
+  \includegraphics[width=\linewidth]{images/frechet.png}
+  \caption{Wandering ratio (normalized Fr\'{e}chet distance) for NTP and STP models, separated by correctness.}
+  \label{fig:frechet}
 \end{figure*}
 
-\subsection{LLM-JEPA Modifications}
+More recently, the same authors of LLM-JEPA proposed Semantic Tube Prediction (STP) \cite{stp}. STP functions on the hypothesis that token sequences trace geodesics on a smooth semantic manifold, with the implication of local linearity almost everywhere. The optimal trajectory between two points on this manifold can be optimized by reducing noise between steps. STP accomplishes this by limiting curvature of the trajectory to be within a ``tube'' around the ideal trajectory.
 
-As I mentioned previously, there are some issues with LLM-JEPA, two of which are particularly notable:
+The Semantic Tube Prediction objective penalizes the trajectory for turning via the loss term:
 
-\begin{enumerate}
-  \item LLM-JEPA requires aligned data for the text and code, making it a somewhat supervised task. It would be more appealing if LLM-JEPA could align these representations itself.
-  \item LLM-JEPA has a variable number of ``predictor'' steps, but these are purely for processing power, and overall the architecture still acts in a single-step autoregressive manner. This goes against the original JEPA vision \cite{Dawid_2024}, and it would be interesting to let the LLM actually reason in a multi-step manner, more akin to work such as Chain of Continuous Thought \cite{hao2025training}.
-\end{enumerate}
+\begin{equation}
+\mathcal{L}_{\text{STP}} = 1 - \cos(h_t - h_r, \; h_r - h_s)
+\label{eq:stp-loss}
+\end{equation}
 
-In this proposal, I am not going to expound on this step, because it is more relevant to my personal research and less relevant to this project itself. If I happen to achieve my other goals before I have put in adequate time, I may pursue this step in more depth, but I do not anticipate that to be the case.
+where $s < r < t$ are token positions picked randomly from the sequence, and $h_s$, $h_r$, $h_t$ are their hidden states. Intuitively, STP minimizes the noise in terms of deviation that $h_r$ may have. The full training objective balances this term with a weight $\lambda$:
 
-\section{Initial Experiments}
+\begin{equation}
+\mathcal{L} = \mathcal{L}_{\text{NTP}} + \lambda \cdot \mathcal{L}_{\text{STP}}
+\label{eq:full-loss}
+\end{equation}
 
-I have conducted initial experimentation to evaluate whether this project is viable and promising. I particularly targeted the idea of induction heads: since JEPA should prioritize higher-level representations, I would expect induction heads to weaken or disappear because they primarily focus on token-level patterns.
+STP is fundamentally another regularization term which solves several problems with LLM-JEPA. First of all, while LLM-JEPA relies on aligned handpicked data, STP can be trained on any autoregressive data because it picks subsets within the same input. Second, STP does not require a second pass for hidden state computation. Third, STP does not require any auxiliary predictor networks. Finally, the theoretical justification is arguably cleaner.
 
-I took a base Bloom model and finetuned it with the JEPA objective. It took some work to get right, between adjusting the $\lambda$ contribution value and trying to use the right data. Eventually, I achieved loss curves that looked acceptable, shown in Figure \ref{fig:loss}. However, I only trained for 200 steps; I will train more extensively in my project.
 
-To find induction heads, I heatmapped attention head activations for both models based on the induction head pattern. In Figure \ref{fig:results}, we can see that many heads in the later layers become ``less inductive'' in the JEPA model, by at least a little. However, the core heads are still there. The magnitude of difference tells me that the JEPA objective likely did not change the model in any significant way, especially since it was not finetuned for very long.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/stp.png}
+  \caption{STP curvature loss across layers for prompt and generation tokens, separated by model and correctness.}
+  \label{fig:stp}
+\end{figure*}
 
-Overall, this initial experimentation gave me greater confidence that answering my research questions will be possible for this project, and that there are interesting questions to explore in this area.
+\section{Methodology \& Results}
+
+I cover both methodology and results together, reflecting the variety of experiments I iterated through.
+
+\subsection{Replicating STP Results with Multilingual Data}
+
+I began by forking the LLM-JEPA codebase \cite{huang2025llmjepa_repo}, which also contains implementation for the STP objective. The authors provided scripts for replicating their results on the specific datasets from their paper, such as a regex task. I was able to successfully replicate their results, which was promising.
+
+The next step I took was to attempt to finetune a model with the STP objective on multilingual data. I attempted both training from scratch and finetuning a LoRA adapter on this data. I spent ~10-15 hours trying this, without success. The loss curves were reasonable but the model struggled to converge and evaluation scores, such as BLEU and chrF, were poor. At this point, I began to feel wary because I wanted this to be an interpretability project, not a ``get the STP objective to work on a new task'' project. As such, I opted for using the task setup from the original paper, which I had already verified had reproduced the results from the paper. For the rest of my experiments, I used a baseline model trained with a LoRA adapter without the STP objective (which I refer to as NTP, or next-token prediction), and an STP model with a LoRA adapter trained on the STP objective.
+
+\subsection{Trajectory Curvature Analysis}
+
+My second research question was: how can the trajectory optimized by STP be quantified mechanistically? To explore this question, I performed analysis with PCA, Fr\'{e}chet distance, and the STP objective itself.
+
+
+\subsubsection{PCA}
+
+Principal Component Analysis (PCA) is a dimensionality reduction technique that identifies the directions of maximum variance in high-dimensional data. I applied PCA across hidden representations token-wise (final hidden state for each token position) and layer-wise. The baseline model achieved a mean PC1 ratio of 0.23 across tokens and 0.97 across layers, while the STP model achieved a mean PC1 ratio of 0.20 across tokens and 0.97 across layers. The token-wise decomposition is the relevant view to trajectory analysis here. Both models have an effective dimensionality of around 10 across tokens, suggesting that there is a significant level of multidimensional noise, making it challenging to identify a single clear trajectory component. However, as can be seen in Figure \ref{fig:pca}, the STP model has significantly less variance compared to the baseline, potentially evidencing greater consistency in its representations, across many samples. The meaning or implication of consistency in this context is unclear, beyond the fact that the STP objective causes less variance in the individual principal components we find, across tokens.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/sae-feature-alignment.png}
+  \caption{Cosine similarity between features of the NTP and STP SAEs.}
+  \label{fig:sae-feature-alignment}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/sae-cofiring.png}
+  \caption{Jaccard similarity of active features between the NTP and STP SAEs.}
+  \label{fig:sae-cofiring}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/sae-internal-cofiring.png}
+  \caption{Distribution of cofiring degrees within each SAE.}
+  \label{fig:sae-internal-cofiring}
+\end{figure*}
+
+\subsubsection{Fr\'{e}chet Distance}
+
+Fr\'{e}chet distance is a measure of the maximum deviation of a trajectory from the ideal trajectory. A common analogy is to imagine a man and a dog walking along two separate paths, and the Fr\'{e}chet distance is the length of the leash required to keep them together. I applied this distance measure to the hidden representations of the final layer across tokens, for both models. I compute the wandering ratio, which is the normalized Fr\'{e}chet distance. When the wandering ratio is close to 0, the trajectory is close to the ideal trajectory, meaning it is fairly straight. When the wandering ratio is close to 1, its worst deviation is comparable to the total path length.
+
+As shown in Figure \ref{fig:frechet}, both models have a wandering ratio around 0.10. I plot samples based on whether the model answered correctly or incorrectly. Both models have less variance with incorrect samples, and the STP model appears to align both incorrect and correct samples more closely than the NTP model, which has incorrect samples achieve a slightly lower wandering ratio on average. This is, of course, unintuitive. It's possible that any differences are due to noise. Furthermore, it's surprising that the wandering ratio is so low, which seems to imply that both trajectories are already fairly straight.
+
+One potential issue with Fr\'{e}chet distance is that it is well-defined for piecewise linear curves. Our hidden state trajectories are likely neither. \citet{stp} make an assumption, for the sake of modeling, that the ideal trajectory is a straight line, and that token sequence trajectories can be modeled as ODEs because they live in continuous space. These assumptions are practically convenient for the sake of the objective, but the reality is likely much messier.
+
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/subspace-divergence-pca.png}
+  \caption{PCA of the delta between NTP and STP final layer representations.}
+  \label{fig:subspace-divergence-pca}
+\end{figure*}
+
+\subsubsection{STP Objective}
+
+To overcome the shortcomings of the Fr\'{e}chet distance analysis, I directly analyze the STP objective itself. Recall Equations \ref{eq:stp-loss} and \ref{eq:full-loss}. We can apply the STP objective directly to hidden states to calculate the amount of curvature in the trajectory itself, as a form of analysis. To do so, we capture final hidden states across tokens and compute the STP loss for strides of 1, 2, 4, 8 and 16. A value of 0 indicates the curvature is going directly straight, 1 indicates the curvature is 90 degrees, and 2 indicates the curvature is going directly backwards.
+
+Results are shown in Figure \ref{fig:stp}. Once again, we separate by models and by whether the model answered correctly or incorrectly. We also separate between prompt and generation tokens, across all layers. We can see that both models have roughly the same curvature across layers throughout prompt and generation tokens. The variability of curvature for NTP tokens during generation of samples it gets wrong is somewhat greater, but I attribute this to the propensity for the NTP model to go ``off the rails'' and wander dramatically when it gets a challenging sample. Both models have a mean curvature around 1.35-1.5, indicating the curve is, on average, turning 135 degrees in some direction. I don't observe significant differences with greater strides.
+
+In summary, it seems that the STP objective has not really impacted the model directly in terms of curvature on this regularization term. Rather, it seems that STP has improved performance such that there are fewer samples that wander dramatically and get the answer wrong. Whether this is the cause or the effect is unclear. Either STP just improves accuracy, resulting in fewer ``bad'' trajectories, or STP directly improves the trajectory by minimizing the possibility of a model to wander far. Regardless, the trajectories for either model are not ``straight''; rather, they are bouncing around in high dimensional space. This goes against the core narrative of the paper, which is that the STP model should have a straighter trajectory.
+
+\subsection{Representation Analysis}
+
+Putting the trajectory analysis aside, my third research question was: How does the STP objective impact the representation space of the autoregressive model? I applied a variety of analysis methods to determine how STP might impact the organization or superposition of the model. One notable drawback is that I was working with a model finetuned with a LoRA adapter, which likely limited the degree to which the STP objective actually changed the model.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/superposition.png}
+  \caption{Distribution of feature dimensionality for NTP and STP SAEs.}
+  \label{fig:superposition}
+\end{figure*}
+
+\subsubsection{Cofiring with Sparse Autoencoders}
+
+First of all, I trained a Sparse Autoencoder (SAE) on the hidden representations of the final layer of both models. I trained both SAEs with the same parameters: input dimension of 2048, expansion factor of 8, a sparsity constraint of 64, and a context length of 256. SAEs are trained with a top-k sparsity constraint. I train and evaluate on OpenWebText \cite{Gokaslan2019OpenWeb}, a general web crawl dataset.
+
+Both SAEs achieved an explained variance of ~0.75 (75\% of the variance in the original data is captured by the SAE), an L0 of ~25 (on average, 25 features are active for each sample), and a dead feature fraction of ~0.9 (90\% of features never fired across the eval batch). These results are admittedly mediocre, but I decided to proceed with analysis anyways. The implication, however, is that the features are still fairly dense and not completely separable.
+
+I initially attempted to measure feature alignment between the two SAEs by finding the best match in terms of max cosine similarity for each feature in the NTP SAE, and vice versa. Shown in Figure \ref{fig:sae-feature-alignment}, we can see poor alignment: most features have a max cosine similarity ~0.2 between the two SAEs. However, this may indicate that the models found geometrically different representations for the same features.
+
+Next, I tested cofiring between both SAEs. For a given sample, I capture which features between the SAEs fire for the same tokens. I compute the Jaccard similarity between the sets of active features for the same tokens. Across all samples, I find a median Jaccard of ~0.4, as shown in Figure \ref{fig:sae-cofiring}. Features are distributed fairly uniformly across Jaccard similarities, with a large spike at 1.0. I have confirmed that this spike corresponds with system tokens. While the STP objective may have genuinely changed the representations, it is also possible that the SAEs found different decompositions of the same geometry.
+
+Taking cofiring one step further, I compute the level of cofiring within each SAE. This tells us, within an SAE, for one feature, how many other features cofire with it? Figure \ref{fig:sae-internal-cofiring} shows that both NTP and STP models have roughly the same distribution of cofiring features. If we were to expect density changes with the STP objective, we might see that the STP cofiring cluster more towards lower cofiring degrees (indicating less cofiring and more separability), or towards higher cofiring degrees (indicating more cofiring and more density). Such behavior is not apparent. Of course, there is the confounding factor of the SAE training and performance itself.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/probes.png}
+  \caption{AUROC of probes trained to predict correctness across layers for NTP and STP models.}
+  \label{fig:probes}
+\end{figure*}
+
+\subsubsection{Subspace Divergence}
+
+To more fully quantify how the representations between NTP and STP models differ, I find the delta between the final layer representations of the two models per token and perform PCA. This tells us feature directions of representational divergence between the two models.
+
+Figure \ref{fig:subspace-divergence-pca} shows the PCA results; the first principal component captures ~55\% of the variance, with the first 20 components capturing ~80\% of the variance. It is also worth noting that the divergence PCA found a mean shift norm of 1.44, and a Frobenius norm ratio of 38\%. This indicates that a third of the activation magnitude has shifted in a consistent direction. With a PC1 of 55\%, this suggests that we may have found a ``regex'' direction in the representation space. This methodology is close to that of RepE \cite{zou2023representation}.
+
+Table \ref{tab:subspace-tokens} shows the top tokens along the first and third principal component. As can be seen, these components are capturing the tokens we would expect for the regex task.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}clll@{}}
+\toprule
+\textbf{PC (\% var)} & \textbf{Dir.} & \textbf{Top tokens} & \textbf{Type} \\
+\midrule
+1 (55.8\%) & $+$ & \texttt{[ \; *[ \; ([ \; (([} & regex \\
+             & $-$ & \emph{more, character, number} & NL \\
+\midrule
+3 (7.0\%)   & $+$ & \texttt{' \;} \emph{letter} & literal \\
+             & $-$ & \texttt{(( \; ( \; ]).} & regex \\
+\bottomrule
+\end{tabular}
+\caption{Representative tokens along top divergence PCs (layer~15). Positive: STP shifted more; negative: shifted less.}
+\label{tab:subspace-tokens}
+\end{table}
+
+\subsubsection{Superposition Measurement}
+
+\citet{elhage2022superposition} measure feature dimensionality. I present a simplified version of the formula they use to do so:
+
+\begin{equation}
+D_i = \frac{1}{1 + \displaystyle\sum_{j \neq i} \cos^2(W_i, W_j)}
+\end{equation}
+
+The intuition here is that if a feature is completely orthogonal to all other features, $D_i$ will be 1, indicating there is no superposition on that feature. Values closer to 0 indicate greater superposition. I apply this formula to the features of both SAEs. Once again, there is a potential confounder of the quality of the SAEs themselves.
+
+Shown in Figure \ref{fig:superposition}, the STP model shifts the distribution of feature dimensionality towards higher values, obtaining a more normal distribution compared to the NTP model, whose distribution is more right-skewed, with a notable mass between 0 and 0.1. The NTP SAE has total effective dimensions of 431, while the STP SAE has total effective dimensions of 565, with a random baseline of 1821. These results would suggest that STP reduces superposition, improving organization in the representation space. Another interpretation is that the STP objective improves performance for a different reason, causing the model to be more specialized at the task and reducing needed superposition.
+
+\subsubsection{Correctness-Predictive Probing}
+
+My final analysis involved training probes to predict whether the model will answer correctly or incorrectly, based on the hidden representations. I trained linear probes on layers 0, 3, 7, 11, and 15 of both NTP and STP models. Probes achieved comparable accuracy (AUROC) across both models. In particular, as shown in Figure \ref{fig:probes}, on samples that the STP model gets correct and the NTP model gets incorrect, the probes achieve effectively the same accuracy. This may suggest that the information necessary to correctly answer the sample is present in both models, but the STP model is better at utilizing it in a way the probe does not identify.
+
+\section{Discussion}
+
+All of these results encounter the correlation vs. causation problem. Without more fine-grained analysis, as well as a greater breadth of experiments across tasks and setups, it is impossible to differentiate whether STP directly causes changes in the representation space, or whether it simply improves performance, which results in different representations. Many of these results suggest that the STP is simply a better regularizer for the task, resulting in better performance and potentially trajectories that wander less, but not necessarily directly impacting the geometry of the representation space. From these results, it is still unclear why the STP objective improves performance so dramatically. One major takeaway, however, is that we may be skeptical of the theoretical justification used by \citet{stp} to motivate the STP objective. My direct analysis of the objective itself does not show structural difference in curvature between models.
 
 \section{Conclusion}
 
-This proposed project explores LLM-JEPA, an alternative representation learning approach, through the lens of mechanistic interpretability. I propose training an LLM-JEPA model on multilingual data and using interpretability techniques to explore how the JEPA objective changes internal representations. This research brings greater insight into how JEPA impacts an LLM, how it might benefit interlingual representations, and what improvements can be made to LLM-JEPA.
-
+In this work, I explored the impact of Semantic Tube Prediction on the representation space, from a mechanistic interpretability perspective. I found that the STP objective does not appear to directly impact the curvature of the trajectory, but it does appear to reduce superposition and improve performance, which may result in less wandering trajectories. Future work should analyze several different tasks, such as multilingual translation. As noted previously, I was unable to execute full multilingual analysis because of training challenges. Future work should also perform analysis on finetuned models, or even models trained from scratch with STP, as opposed to simply training a LoRA adapter. It's possible that a well-trained model would exhibit more structural difference of the kind I was looking for.
 % Bibliography entries for the entire Anthology, followed by custom entries
 %\bibliography{anthology,custom}
 % Custom bibliography entries only
